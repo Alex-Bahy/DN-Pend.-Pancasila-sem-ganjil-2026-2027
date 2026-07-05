@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Daftar Nilai SMK — 2025/2026</title>
+<title>Daftar Nilai SMK</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
@@ -295,10 +295,10 @@ td .cell-in:focus { background: #dbeafe; border-radius: 4px; }
   <div class="header-icon">📋</div>
   <div>
     <h1 id="header-title">Daftar Nilai Siswa</h1>
-    <p id="header-sub">Sistem Penilaian SMK Negeri 1 Maluku Tengah · Tahun Pelajaran 2025/2026</p>
+    <p id="header-sub">Sistem Penilaian SMK Negeri 1 Maluku Tengah</p>
   </div>
   <div class="header-right">
-    <a href="https://alex-bahy.github.io/Portal-Kelas-XIMPLB-2026/" class="btn-home" title="Kembali ke Portal Kelas">
+    <a href="https://alex-bahy.github.io/Portal-XIAKL-TP-2026-2027/" class="btn-home" title="Kembali ke Portal Kelas">
       <span class="home-icon">🏠</span>
       <span class="home-label">Portal Kelas</span>
       <span class="home-arrow">↗</span>
@@ -336,6 +336,15 @@ td .cell-in:focus { background: #dbeafe; border-radius: 4px; }
           <input id="cfg-sekolah" type="text" placeholder="Nama sekolah…"
             oninput="markDirty('sekolah')" onblur="scheduleAutoSave()">
           <span class="field-check" id="check-sekolah">✅</span>
+        </div>
+
+        <div class="config-field">
+          <label>
+            <span class="field-dirty-dot" id="dot-tahun"></span>
+            Tahun Pelajaran
+          </label>
+          <select id="cfg-tahun" onchange="markDirty('tahun'); scheduleAutoSave()"></select>
+          <span class="field-check" id="check-tahun">✅</span>
         </div>
 
         <div class="config-field">
@@ -490,7 +499,7 @@ td .cell-in:focus { background: #dbeafe; border-radius: 4px; }
     <p><strong>Langkah 1.</strong> Buka spreadsheet → klik <em>Extensions → Apps Script</em>.</p>
     <p><strong>Langkah 2.</strong> Pastikan <code class="icode">Code.gs</code> sudah berisi konstanta <code class="icode">SHEET_ID</code> yang sesuai dengan spreadsheet ini, lalu <em>Deploy → New Deployment → Web App</em> (Execute as: Me, Who has access: Anyone).</p>
     <p><strong>Langkah 3.</strong> Copy URL Web App hasil deploy, lalu paste ke variabel <code class="icode">GAS_URL</code> di bagian atas script halaman ini.</p>
-    <p><strong>💡 Konfigurasi</strong> (nama sekolah, mapel, kelas, dll) disimpan di sheet tersembunyi <strong>Konfigurasi</strong> dan otomatis dimuat di perangkat mana pun.</p>
+    <p><strong>💡 Konfigurasi</strong> (nama sekolah, tahun pelajaran, mapel, kelas, dll) disimpan di sheet tersembunyi <strong>Konfigurasi</strong> dan otomatis dimuat di perangkat mana pun.</p>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="document.getElementById('modal-setup').classList.remove('open')">Mengerti, Tutup</button>
     </div>
@@ -500,10 +509,35 @@ td .cell-in:focus { background: #dbeafe; border-radius: 4px; }
 <div id="toast"></div>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw-IW5PQInNyP8u7EUI6uGYP131-EFKKQ7DSs37HAJdbak9evut_VERmAxI51mrX2wzhw/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwpd2TERGsepafeZWSBCnU1q50wbMAT4ftUpbXPJpUhXGDpaV__gRoXpIYCZNLUn3J5ng/exec";
+
+// ─── TAHUN PELAJARAN ──────────────────────────────────────────────────────────
+// Rentang dropdown dibuat otomatis relatif terhadap tahun berjalan, jadi tidak
+// perlu diedit manual setiap tahun. Ganti YEARS_BEFORE / YEARS_AFTER bila perlu.
+const YEARS_BEFORE = 2;
+const YEARS_AFTER  = 10;
+
+function defaultTahunAjaran() {
+  const y = new Date().getFullYear();
+  return `${y}/${y + 1}`;
+}
+
+function populateTahunOptions(selectedValue) {
+  const sel = document.getElementById('cfg-tahun');
+  const nowY = new Date().getFullYear();
+  const startY = nowY - YEARS_BEFORE;
+  const endY = nowY + YEARS_AFTER;
+  const opts = [];
+  for (let y = startY; y <= endY; y++) opts.push(`${y}/${y + 1}`);
+  // Jika nilai tersimpan berada di luar rentang default, tetap tampilkan agar tidak hilang
+  if (selectedValue && !opts.includes(selectedValue)) opts.unshift(selectedValue);
+  sel.innerHTML = opts.map(o =>
+    `<option value="${o}"${o === selectedValue ? ' selected' : ''}>${o}</option>`
+  ).join('');
+}
 
 // ─── CONFIG FIELDS ────────────────────────────────────────────────────────────
-const CFG_KEYS = ['sekolah','mapel','kelas','semester','guru','kkm'];
+const CFG_KEYS = ['sekolah','tahun','mapel','kelas','semester','guru','kkm'];
 let cfgDirty   = new Set();
 let autoSaveTimer = null;
 let configOpen = true;
@@ -545,6 +579,7 @@ function scheduleAutoSave() {
 async function saveConfig(isAuto = false) {
   const cfg = {
     sekolah:  document.getElementById('cfg-sekolah').value.trim(),
+    tahun:    document.getElementById('cfg-tahun').value,
     mapel:    document.getElementById('cfg-mapel').value.trim(),
     kelas:    document.getElementById('cfg-kelas').value.trim(),
     semester: document.getElementById('cfg-semester').value,
@@ -613,7 +648,7 @@ async function saveConfig(isAuto = false) {
 async function loadConfig() {
   if (!GAS_URL || GAS_URL.trim() === '') {
     setCfgSyncStatus('idle', '⚠️ URL belum diisi');
-    applyConfigToUI({ sekolah: 'SMK Negeri 1 Maluku Tengah', mapel: '', kelas: '', semester: 'Genap', guru: '', kkm: '75' });
+    applyConfigToUI({ sekolah: 'SMK Negeri 1 Maluku Tengah', tahun: defaultTahunAjaran(), mapel: '', kelas: '', semester: 'Genap', guru: '', kkm: '75' });
     return;
   }
   setCfgSyncStatus('loading', '⏳ Memuat…');
@@ -627,7 +662,7 @@ async function loadConfig() {
 
     if (Object.keys(cfg).length === 0) {
       setCfgSyncStatus('idle', '📝 Belum ada konfigurasi');
-      applyConfigToUI({ sekolah: 'SMK Negeri 1 Maluku Tengah', mapel: '', kelas: '', semester: 'Genap', guru: '', kkm: '75' });
+      applyConfigToUI({ sekolah: 'SMK Negeri 1 Maluku Tengah', tahun: defaultTahunAjaran(), mapel: '', kelas: '', semester: 'Genap', guru: '', kkm: '75' });
       document.getElementById('btn-cfg-save').disabled = false;
       return;
     }
@@ -650,13 +685,14 @@ async function loadConfig() {
     } catch(e) {}
 
     setCfgSyncStatus('error', '❌ GAS perlu diperbarui');
-    applyConfigToUI({ sekolah: 'SMK Negeri 1 Maluku Tengah', mapel: '', kelas: '', semester: 'Genap', guru: '', kkm: '75' });
+    applyConfigToUI({ sekolah: 'SMK Negeri 1 Maluku Tengah', tahun: defaultTahunAjaran(), mapel: '', kelas: '', semester: 'Genap', guru: '', kkm: '75' });
     showToast('❌ Gagal muat konfigurasi: ' + err.message, 'error');
   }
 }
 
 function applyConfigToUI(cfg) {
   if (cfg.sekolah  !== undefined) document.getElementById('cfg-sekolah').value  = cfg.sekolah;
+  populateTahunOptions(cfg.tahun || defaultTahunAjaran());
   if (cfg.mapel    !== undefined) document.getElementById('cfg-mapel').value    = cfg.mapel;
   if (cfg.kelas    !== undefined) document.getElementById('cfg-kelas').value    = cfg.kelas;
   if (cfg.semester !== undefined) document.getElementById('cfg-semester').value = cfg.semester;
@@ -666,10 +702,11 @@ function applyConfigToUI(cfg) {
   KKM = (cfg.kkm !== undefined && cfg.kkm !== '' && !isNaN(+cfg.kkm)) ? +cfg.kkm : 75;
 
   const sekolah = cfg.sekolah || 'SMK';
+  const tahun   = cfg.tahun   || defaultTahunAjaran();
   const kelas   = cfg.kelas   || '';
   const mapel   = cfg.mapel   || '';
   document.getElementById('header-sub').textContent =
-    `Sistem Penilaian ${sekolah}${kelas ? ' · ' + kelas : ''}${mapel ? ' · ' + mapel : ''} · T.P. 2025/2026`;
+    `Sistem Penilaian ${sekolah}${kelas ? ' · ' + kelas : ''}${mapel ? ' · ' + mapel : ''} · T.P. ${tahun}`;
   if (mapel || kelas)
     document.getElementById('header-title').textContent =
       `Daftar Nilai${mapel ? ' — ' + mapel : ''}${kelas ? ' (' + kelas + ')' : ''}`;
@@ -835,10 +872,10 @@ async function syncToSheets(){
 }
 
 function exportExcel(){
-  const sekolah=document.getElementById('cfg-sekolah').value, mapel=document.getElementById('cfg-mapel').value, kelas=document.getElementById('cfg-kelas').value, sem=document.getElementById('cfg-semester').value, guru=document.getElementById('cfg-guru').value;
+  const sekolah=document.getElementById('cfg-sekolah').value, tahun=document.getElementById('cfg-tahun').value, mapel=document.getElementById('cfg-mapel').value, kelas=document.getElementById('cfg-kelas').value, sem=document.getElementById('cfg-semester').value, guru=document.getElementById('cfg-guru').value;
   const info=[
     ['DAFTAR NILAI SISWA'],
-    [`Sekolah: ${sekolah}`,'',`Mata Pelajaran: ${mapel}`],
+    [`Sekolah: ${sekolah}`,'',`Tahun Pelajaran: ${tahun}`,'',`Mata Pelajaran: ${mapel}`],
     [`Kelas: ${kelas}`,'',`Semester: ${sem}`,'',`Guru: ${guru}`],
     [`Rumus: 40% Rata Formatif + 40% Rata Sumatif + 20% ASAS/ASAT · KKM: ${KKM}`],
     [],
@@ -864,7 +901,7 @@ function exportExcel(){
   const wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(info);
   ws['!cols']=[{wch:4},{wch:26},{wch:12},{wch:7},{wch:7},{wch:7},{wch:7},{wch:7},{wch:7},{wch:7},{wch:7},{wch:12},{wch:7},{wch:7},{wch:7},{wch:7},{wch:12},{wch:11},{wch:11},{wch:9},{wch:11}];
   XLSX.utils.book_append_sheet(wb,ws,'Daftar Nilai');
-  XLSX.writeFile(wb,`Daftar_Nilai_${kelas.replace(/\s+/g,'_')}_${sem}.xlsx`);
+  XLSX.writeFile(wb,`Daftar_Nilai_${kelas.replace(/\s+/g,'_')}_${tahun.replace('/','-')}_${sem}.xlsx`);
   showToast('📥 File Excel diunduh!','success');
 }
 
@@ -880,7 +917,8 @@ function showToast(msg,type=''){
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (async function init() {
-  await loadConfig();     // muat konfigurasi dulu (termasuk KKM)
+  populateTahunOptions(defaultTahunAjaran()); // isi dropdown sebelum config dimuat
+  await loadConfig();     // muat konfigurasi dulu (termasuk tahun & KKM)
   await loadFromSheets(); // lalu muat data nilai
 })();
 </script>
